@@ -1,35 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apex Financial Intelligence Dashboard</title>
+    <title>Apex Institutional Sentiment Engine</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=4">
 </head>
+
 <body>
     <!-- Setup Wizard Overlay (Apple Store Inspired) -->
     <div id="wizard-overlay" class="wizard-overlay">
         <div class="wizard-card">
             <header class="wizard-header">
-                <h2>Apex Financial Intelligence</h2>
+                <h2>Apex Institutional Sentiment Engine</h2>
                 <p class="wizard-subtitle">On-demand corporate safety evaluation & market signal extraction</p>
             </header>
-            
+
             <!-- Step 1: Moneycontrol Link Verification -->
             <div id="wizard-step-1" class="wizard-step">
                 <div class="form-group">
                     <label for="moneycontrol-url">Moneycontrol News Link</label>
-                    <input type="text" id="moneycontrol-url" class="form-input" 
-                           placeholder="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS"
-                           value="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS">
+                    <input type="text" id="moneycontrol-url" class="form-input"
+                        placeholder="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS"
+                        value="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS">
                     <span class="input-hint">Supports company-article lists and tag pages.</span>
                 </div>
                 <button type="button" id="btn-verify-link" class="btn btn-primary">Verify Link</button>
             </div>
-            
+
             <!-- Step 2: Date Cutoff & Gemini Key -->
             <div id="wizard-step-2" class="wizard-step hidden">
                 <div class="form-group">
@@ -80,7 +84,7 @@
     <header class="app-header">
         <div class="header-inner">
             <div class="header-logo">
-                <h1>Apex Financial Intelligence</h1>
+                <h1>Apex Institutional Sentiment Engine</h1>
             </div>
             <div class="header-stats">
                 <div class="stat-badge">
@@ -127,7 +131,7 @@
                 </div>
                 <button class="modal-close-btn" id="close-modal-btn">&times;</button>
             </header>
-            
+
             <div class="modal-body">
                 <!-- Sector Metrics Header -->
                 <section class="modal-metrics">
@@ -171,4 +175,5 @@
 
     <script src="app.js?v=3"></script>
 </body>
+
 </html>
