@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stock-sentiment-predictor
+    name: apex-ise
     runtime: docker
     envVars:
       - key: PORT

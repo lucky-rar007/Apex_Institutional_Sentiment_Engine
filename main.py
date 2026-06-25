@@ -4,7 +4,7 @@ from storage.db_client import init_db
 
 def main():
     print("=" * 60)
-    print("APEX FINANCIAL INTELLIGENCE DASHBOARD")
+    print("APEX INSTITUTIONAL SENTIMENT ENGINE (APEX ISE)")
     print("=" * 60)
 
     # Initialize SQLite tables
@@ -12,7 +12,7 @@ def main():
 
     # Start the web server serving the dashboard
     print("\n" + "=" * 60)
-    print("STARTING APEX FINANCIAL INTELLIGENCE SERVER")
+    print("STARTING APEX INSTITUTIONAL SENTIMENT ENGINE SERVER")
     print("=" * 60)
     start_server()
 
