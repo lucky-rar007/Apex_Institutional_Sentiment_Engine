@@ -547,6 +547,30 @@ function initApp() {
             return;
         }
 
+        // Verify key against Google (server-side check)
+        btnRunPipeline.disabled = true;
+        const originalText = btnRunPipeline.textContent;
+        btnRunPipeline.textContent = "Verifying API key...";
+
+        try {
+            const keyCheckRes = await fetch('/api/verify-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gemini_api_key: geminiKey })
+            });
+            const keyCheckData = await keyCheckRes.json();
+            
+            if (!keyCheckRes.ok || !keyCheckData.success) {
+                throw new Error(keyCheckData.error || "Gemini API Key verification failed.");
+            }
+        } catch (err) {
+            showWizardError(err.message);
+            return;
+        } finally {
+            btnRunPipeline.disabled = false;
+            btnRunPipeline.textContent = originalText;
+        }
+
         // Show Progress Step
         wizardStep2.classList.add('hidden');
         wizardStepProgress.classList.remove('hidden');

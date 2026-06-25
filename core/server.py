@@ -312,6 +312,35 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_json_response(500, {"success": False, "error": f"Failed to verify URL: {str(e)}"})
                 
+        elif self.path == "/api/verify-key":
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                req_json = json.loads(post_data.decode('utf-8'))
+                
+                api_key = req_json.get("gemini_api_key", "").strip()
+                
+                key_valid, key_err = validate_api_key(api_key)
+                if not key_valid:
+                    self.send_json_response(400, {"success": False, "error": key_err})
+                    return
+                
+                import requests
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                resp = requests.get(url, timeout=10)
+                
+                if resp.status_code == 200:
+                    self.send_json_response(200, {"success": True, "message": "API key is valid."})
+                else:
+                    try:
+                        err_payload = resp.json()
+                        err_msg = err_payload.get("error", {}).get("message", "API key verification failed.")
+                    except:
+                        err_msg = f"HTTP {resp.status_code}: Key verification failed."
+                    self.send_json_response(400, {"success": False, "error": err_msg})
+            except Exception as e:
+                self.send_json_response(500, {"success": False, "error": f"Failed to verify API key: {str(e)}"})
+                
         elif self.path == "/api/run-pipeline":
             try:
                 content_length = int(self.headers['Content-Length'])
