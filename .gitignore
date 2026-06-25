@@ -113,3 +113,12 @@ venv.bak/
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# Project-specific Ignores
+.env
+*.db
+data/raws/tcs_scraped.json
+scratch/
+.tempmediaStorage/
+*__pycache__/
+.pytest_cache/

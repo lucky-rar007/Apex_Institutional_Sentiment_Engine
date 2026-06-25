@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Financial Intelligence Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <!-- Setup Wizard Overlay (Apple Store Inspired) -->
+    <div id="wizard-overlay" class="wizard-overlay">
+        <div class="wizard-card">
+            <header class="wizard-header">
+                <h2>Apex Financial Intelligence</h2>
+                <p class="wizard-subtitle">On-demand corporate safety evaluation & market signal extraction</p>
+            </header>
+            
+            <!-- Step 1: Moneycontrol Link Verification -->
+            <div id="wizard-step-1" class="wizard-step">
+                <div class="form-group">
+                    <label for="moneycontrol-url">Moneycontrol News Link</label>
+                    <input type="text" id="moneycontrol-url" class="form-input" 
+                           placeholder="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS"
+                           value="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS">
+                    <span class="input-hint">Supports company-article lists and tag pages.</span>
+                </div>
+                <button type="button" id="btn-verify-link" class="btn btn-primary">Verify Link</button>
+            </div>
+            
+            <!-- Step 2: Date Cutoff & Gemini Key -->
+            <div id="wizard-step-2" class="wizard-step hidden">
+                <div class="form-group">
+                    <label for="date-range-select">Analyze News Range</label>
+                    <select id="date-range-select" class="form-input">
+                        <option value="last-month">Since Last Month</option>
+                        <option value="last-6-months" selected>Last 6 Months</option>
+                        <option value="last-year">Last Year</option>
+                        <option value="all-time">All Time</option>
+                        <option value="custom">Custom Date Cutoff</option>
+                    </select>
+                </div>
+                <div id="custom-date-container" class="form-group hidden">
+                    <label for="cutoff-date">Analyze News Since Date</label>
+                    <input type="date" id="cutoff-date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="gemini-key">Gemini API Key</label>
+                    <input type="password" id="gemini-key" class="form-input" placeholder="AIzaSy...">
+                    <span class="input-hint">Your key is used in-memory for this session only.</span>
+                </div>
+                <div class="wizard-buttons-row">
+                    <button type="button" id="btn-back-step-1" class="btn btn-secondary">Back</button>
+                    <button type="button" id="btn-run-pipeline" class="btn btn-primary">Start Analysis</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Pipeline Processing Status -->
+            <div id="wizard-step-progress" class="wizard-step hidden">
+                <div class="progress-status-container">
+                    <div class="spinner"></div>
+                    <h3 id="progress-title">Connecting...</h3>
+                    <p id="progress-subtitle">Initializing pipeline variables...</p>
+                    <div class="progress-bar-track">
+                        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wizard-error" class="wizard-error-banner hidden">
+                <span class="error-icon">⚠️</span>
+                <p id="wizard-error-msg"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Header (Apple-inspired Top Navigation) -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="header-logo">
+                <h1>Apex Financial Intelligence</h1>
+            </div>
+            <div class="header-stats">
+                <div class="stat-badge">
+                    <span class="stat-label">Total Signals:</span>
+                    <span id="total-signals-count" class="stat-value">--</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-label">Last Updated:</span>
+                    <span id="last-updated-time" class="stat-value">--</span>
+                </div>
+                <!-- Reset Button -->
+                <button type="button" id="btn-reset-pipeline" class="btn btn-secondary">Reset</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-container">
+
+        <!-- Loading Indicator -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Analyzing company news safety & evaluating sectors with Gemini...</p>
+        </div>
+
+        <!-- Error Banner -->
+        <div id="error-banner" class="error-banner hidden">
+            <span class="error-icon">⚠️</span>
+            <p id="error-message"></p>
+        </div>
+
+        <!-- Main Content (Sectors Grid) -->
+        <main class="dashboard-grid" id="sectors-grid">
+            <!-- Sector Cards will be injected here via JavaScript -->
+        </main>
+    </div>
+
+    <!-- Details Overlay Modal -->
+    <div id="details-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-area">
+                    <h2 id="modal-sector-name">Sector Details</h2>
+                    <span id="modal-sector-category" class="modal-category">Category</span>
+                </div>
+                <button class="modal-close-btn" id="close-modal-btn">&times;</button>
+            </header>
+            
+            <div class="modal-body">
+                <!-- Sector Metrics Header -->
+                <section class="modal-metrics">
+                    <div class="metric-box">
+                        <span class="metric-label">Health Score</span>
+                        <div class="health-display">
+                            <span id="modal-health-score" class="metric-value">--</span>
+                            <span class="metric-max">/100</span>
+                        </div>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Status</span>
+                        <span id="modal-sector-status" class="status-badge">--</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Confidence</span>
+                        <span id="modal-sector-confidence" class="metric-value">--</span>
+                    </div>
+                </section>
+
+                <!-- Sector Overview Summary -->
+                <section class="modal-summary-section">
+                    <h3>Sector Safety Summary</h3>
+                    <p id="modal-sector-summary">Evaluating sector details...</p>
+                </section>
+
+                <!-- Signal List -->
+                <section class="modal-signals-section">
+                    <h3>Contributing Signals & Traceability</h3>
+                    <div class="signals-list-header">
+                        <span>Signal Type / Event Summary</span>
+                        <span class="align-right">Strength (Decayed)</span>
+                    </div>
+                    <div class="signals-list" id="modal-signals-list">
+                        <!-- Signals dynamically injected here -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=3"></script>
+</body>
+</html>
