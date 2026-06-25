@@ -623,24 +623,129 @@ body {
 @media (max-width: 768px) {
     .app-container {
         padding: 1.5rem 1rem;
+        gap: 1.5rem;
     }
     
-    .app-header {
+    .header-inner {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
-        padding: 1.25rem 1.5rem;
+    }
+    
+    .header-logo h1 {
+        font-size: 1.15rem;
     }
     
     .header-stats {
         width: 100%;
-        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: flex-start;
+    }
+    
+    .stat-badge {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.725rem;
+    }
+    
+    #btn-reset-pipeline {
+        padding: 0.4rem 1rem;
+        font-size: 0.75rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+    
+    .sector-card {
+        padding: 1.25rem 1.5rem;
+        gap: 1rem;
+    }
+    
+    /* Modal Responsive Styles */
+    .modal-card {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .modal-header {
+        padding: 1rem 1.25rem;
+    }
+    
+    .modal-title-area h2 {
+        font-size: 1.25rem;
+    }
+    
+    .modal-body {
+        padding: 1.25rem;
+        gap: 1.25rem;
+    }
+    
+    .modal-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .metric-box {
+        padding: 1rem;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+    }
+    
+    .modal-summary-section, .modal-signals-section {
+        padding: 1.25rem;
+    }
+    
+    .signal-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    
+    .signal-score {
+        align-self: flex-end;
+        font-size: 1rem;
+    }
+    
+    .signals-list-header {
+        display: none; /* Hide header columns as we stack on mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    .wizard-card {
+        padding: 2.25rem 1.5rem;
+        gap: 1.5rem;
+    }
+    
+    .wizard-header h2 {
+        font-size: 1.45rem;
+    }
+    
+    .form-input {
+        padding: 0.75rem 0.85rem;
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.85rem;
+    }
+    
+    .wizard-buttons-row {
+        flex-direction: column;
+        gap: 0.5rem;
     }
     
     .modal-metrics {
         grid-template-columns: 1fr;
     }
 }
+
 
 /* Setup Wizard Overlay (Apple Store Light Inspired) */
 .wizard-overlay {
