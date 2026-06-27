@@ -4,26 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: https:;">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: https:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-L9QPN3ZVWF"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-L9QPN3ZVWF');
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-L9QPN3ZVWF');
     </script>
     <title>Apex Institutional Sentiment Engine</title>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=14">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 
 <body>
-    <!-- Setup Wizard Overlay (Apple Store Inspired) -->
+    <!-- Setup Wizard Overlay -->
     <div id="wizard-overlay" class="wizard-overlay">
         <div class="wizard-card">
             <header class="wizard-header">
@@ -31,20 +30,14 @@
                 <p class="wizard-subtitle">On-demand corporate safety evaluation & market signal extraction</p>
             </header>
 
-            <!-- Step 1: Moneycontrol Link Verification -->
-            <div id="wizard-step-1" class="wizard-step">
+            <!-- Single merged step: Stock + Date + Key -->
+            <div id="wizard-step-main" class="wizard-step">
                 <div class="form-group">
-                    <label for="moneycontrol-url">Moneycontrol News Link</label>
-                    <input type="text" id="moneycontrol-url" class="form-input"
-                        placeholder="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS"
-                        value="https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS">
-                    <span class="input-hint">Supports company-article lists and tag pages.</span>
+                    <label for="stock-select">Select Stock</label>
+                    <select id="stock-select" class="form-input">
+                        <option value="">-- Choose a stock --</option>
+                    </select>
                 </div>
-                <button type="button" id="btn-verify-link" class="btn btn-primary">Verify Link</button>
-            </div>
-
-            <!-- Step 2: Date Cutoff & Gemini Key -->
-            <div id="wizard-step-2" class="wizard-step hidden">
                 <div class="form-group">
                     <label for="date-range-select">Analyze News Range</label>
                     <select id="date-range-select" class="form-input">
@@ -64,13 +57,10 @@
                     <input type="password" id="gemini-key" class="form-input" placeholder="AIzaSy...">
                     <span class="input-hint">Your key is used in-memory for this session only.</span>
                 </div>
-                <div class="wizard-buttons-row">
-                    <button type="button" id="btn-back-step-1" class="btn btn-secondary">Back</button>
-                    <button type="button" id="btn-run-pipeline" class="btn btn-primary">Start Analysis</button>
-                </div>
+                <button type="button" id="btn-run-pipeline" class="btn btn-primary">Start Analysis</button>
             </div>
 
-            <!-- Step 3: Pipeline Processing Status -->
+            <!-- Pipeline Processing Status -->
             <div id="wizard-step-progress" class="wizard-step hidden">
                 <div class="progress-status-container">
                     <div class="spinner"></div>
@@ -89,45 +79,92 @@
         </div>
     </div>
 
-    <!-- Dashboard Header (Apple-inspired Top Navigation) -->
+    <!-- Dashboard Header -->
     <header class="app-header">
         <div class="header-inner">
             <div class="header-logo">
-                <h1>Apex Institutional Sentiment Engine</h1>
+                <h1>Apex ISE</h1>
+                <span id="active-stock-name" class="active-stock-badge">--</span>
             </div>
             <div class="header-stats">
                 <div class="stat-badge">
-                    <span class="stat-label">Total Signals:</span>
+                    <span class="stat-label">Signals:</span>
                     <span id="total-signals-count" class="stat-value">--</span>
                 </div>
                 <div class="stat-badge">
-                    <span class="stat-label">Last Updated:</span>
+                    <span class="stat-label">Updated:</span>
                     <span id="last-updated-time" class="stat-value">--</span>
                 </div>
-                <!-- Reset Button -->
-                <button type="button" id="btn-reset-pipeline" class="btn btn-secondary">Reset</button>
+                <button type="button" id="btn-compare" class="btn btn-secondary btn-sm">Compare</button>
+                <button type="button" id="btn-reset-pipeline" class="btn btn-secondary btn-sm">Reset</button>
             </div>
         </div>
     </header>
 
-    <div class="app-container">
+    <!-- Compare Stock Panel (slide-out sidebar) -->
+    <div id="compare-panel" class="compare-panel hidden">
+        <div class="compare-panel-inner">
+            <div class="compare-panel-header">
+                <h3>Stocks</h3>
+                <button id="close-compare-panel" class="modal-close-btn">&times;</button>
+            </div>
+            <div id="stock-list" class="stock-list">
+                <!-- Stock cards injected by JS -->
+            </div>
+        </div>
+    </div>
 
-        <!-- Loading Indicator -->
-        <div id="loading-overlay" class="loading-overlay hidden">
-            <div class="spinner"></div>
-            <p>Analyzing company news safety & evaluating sectors with Gemini...</p>
+    <!-- Main Dashboard Wrapper (supports split view) -->
+    <div id="dashboard-wrapper" class="dashboard-wrapper">
+        <!-- Primary stock panel -->
+        <div id="primary-panel" class="stock-panel">
+            <div class="app-container">
+                <div class="primary-stock-header hidden" id="primary-stock-header">
+                    <h2 id="primary-stock-title">--</h2>
+                    <button type="button" id="btn-close-primary-view" class="btn btn-secondary btn-sm">Close</button>
+                </div>
+                <div id="chart-container" class="chart-container">
+                    <div id="price-chart"></div>
+                    <div id="chart-tooltip" class="chart-tooltip hidden"></div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="loading-overlay" class="loading-overlay hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing company news safety & evaluating sectors with Gemini...</p>
+                </div>
+
+                <!-- Error Banner -->
+                <div id="error-banner" class="error-banner hidden">
+                    <span class="error-icon">⚠️</span>
+                    <p id="error-message"></p>
+                </div>
+
+                <!-- Sectors Grid -->
+                <main class="dashboard-grid" id="sectors-grid">
+                </main>
+            </div>
         </div>
 
-        <!-- Error Banner -->
-        <div id="error-banner" class="error-banner hidden">
-            <span class="error-icon">⚠️</span>
-            <p id="error-message"></p>
+        <!-- Compare stock panel (injected when compare is active) -->
+        <div id="compare-stock-panel" class="stock-panel hidden">
+            <div class="app-container">
+                <div class="compare-stock-header">
+                    <h2 id="compare-stock-title">--</h2>
+                    <button type="button" id="btn-close-compare-view" class="btn btn-secondary btn-sm">Close</button>
+                </div>
+                <div id="compare-chart-container" class="chart-container">
+                    <div id="compare-price-chart"></div>
+                    <div id="compare-chart-tooltip" class="chart-tooltip hidden"></div>
+                </div>
+                <div id="compare-loading" class="loading-overlay hidden">
+                    <div class="spinner"></div>
+                    <p>Preparing comparison dashboard...</p>
+                </div>
+                <main class="dashboard-grid" id="compare-sectors-grid">
+                </main>
+            </div>
         </div>
-
-        <!-- Main Content (Sectors Grid) -->
-        <main class="dashboard-grid" id="sectors-grid">
-            <!-- Sector Cards will be injected here via JavaScript -->
-        </main>
     </div>
 
     <!-- Details Overlay Modal -->
@@ -142,7 +179,6 @@
             </header>
 
             <div class="modal-body">
-                <!-- Sector Metrics Header -->
                 <section class="modal-metrics">
                     <div class="metric-box">
                         <span class="metric-label">Health Score</span>
@@ -161,13 +197,11 @@
                     </div>
                 </section>
 
-                <!-- Sector Overview Summary -->
                 <section class="modal-summary-section">
                     <h3>Sector Safety Summary</h3>
                     <p id="modal-sector-summary">Evaluating sector details...</p>
                 </section>
 
-                <!-- Signal List -->
                 <section class="modal-signals-section">
                     <h3>Contributing Signals & Traceability</h3>
                     <div class="signals-list-header">
@@ -175,14 +209,13 @@
                         <span class="align-right">Strength (Decayed)</span>
                     </div>
                     <div class="signals-list" id="modal-signals-list">
-                        <!-- Signals dynamically injected here -->
                     </div>
                 </section>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=14"></script>
 </body>
 
 </html>

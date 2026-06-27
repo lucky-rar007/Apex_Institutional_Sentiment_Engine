@@ -24,12 +24,12 @@ INITIAL_EVENTS = [
 
 # Predefined sector clusters for company health evaluation
 INITIAL_CLUSTERS = [
-    {"cluster_type": "financials", "category": "financial_performance", "description": "Measures of revenue growth, profit margins, costs, and cash flows."},
-    {"cluster_type": "operations", "category": "business_operations", "description": "Operational efficiency, client contract wins, and physical footprint expansion."},
-    {"cluster_type": "governance", "category": "corporate_governance", "description": "C-suite alignment, leadership transitions, and strategic corporate direction."},
-    {"cluster_type": "employment", "category": "human_capital", "description": "Employee sentiment, hiring expansions, layoffs, and compensation adjustments."},
-    {"cluster_type": "product_tech", "category": "technology_innovation", "description": "Software updates, agentic AI platforms, cloud solutions, and security posture."},
-    {"cluster_type": "compliance", "category": "risk_compliance", "description": "Legal case developments, court trials, and government regulatory investigations."}
+    {"cluster_type": "financials", "category": "financial_performance", "description": "Measures of revenue growth, profit margins, costs, and cash flows.", "persistence": 0.8, "decay_rate": 0.005},
+    {"cluster_type": "operations", "category": "business_operations", "description": "Operational efficiency, client contract wins, and physical footprint expansion.", "persistence": 0.7, "decay_rate": 0.01},
+    {"cluster_type": "governance", "category": "corporate_governance", "description": "C-suite alignment, leadership transitions, and strategic corporate direction.", "persistence": 0.8, "decay_rate": 0.005},
+    {"cluster_type": "employment", "category": "human_capital", "description": "Employee sentiment, hiring expansions, layoffs, and compensation adjustments.", "persistence": 0.6, "decay_rate": 0.02},
+    {"cluster_type": "product_tech", "category": "technology_innovation", "description": "Software updates, agentic AI platforms, cloud solutions, and security posture.", "persistence": 0.5, "decay_rate": 0.05},
+    {"cluster_type": "compliance", "category": "risk_compliance", "description": "Legal case developments, court trials, and government regulatory investigations.", "persistence": 0.7, "decay_rate": 0.01}
 ]
 
 import sqlite3
@@ -47,7 +47,7 @@ def get_connection():
             init_db_conn(_memory_conn)
         return _memory_conn
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         # Test writeability
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS _test_write (id INTEGER PRIMARY KEY)")
@@ -69,9 +69,19 @@ def init_db_conn(conn):
         CREATE TABLE IF NOT EXISTS clusters (
             cluster_type TEXT PRIMARY KEY,
             category TEXT,
-            description TEXT
+            description TEXT,
+            persistence REAL DEFAULT 0.6,
+            decay_rate REAL DEFAULT 0.02
         )
     """)
+    
+    # Run dynamic checks to upgrade existing database schemas if columns are missing
+    cursor.execute("PRAGMA table_info(clusters)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "persistence" not in columns:
+        cursor.execute("ALTER TABLE clusters ADD COLUMN persistence REAL DEFAULT 0.6")
+    if "decay_rate" not in columns:
+        cursor.execute("ALTER TABLE clusters ADD COLUMN decay_rate REAL DEFAULT 0.02")
     
     # 2. Event Types table (registry of events)
     cursor.execute("""
@@ -138,8 +148,15 @@ def init_db_conn(conn):
     if cursor.fetchone()[0] == 0:
         for cl in INITIAL_CLUSTERS:
             cursor.execute(
-                "INSERT OR IGNORE INTO clusters (cluster_type, category, description) VALUES (?, ?, ?)",
-                (cl["cluster_type"], cl["category"], cl["description"])
+                "INSERT OR IGNORE INTO clusters (cluster_type, category, description, persistence, decay_rate) VALUES (?, ?, ?, ?, ?)",
+                (cl["cluster_type"], cl["category"], cl["description"], cl.get("persistence", 0.6), cl.get("decay_rate", 0.02))
+            )
+    else:
+        # Update existing records to ensure they have correct decay values if columns were just added
+        for cl in INITIAL_CLUSTERS:
+            cursor.execute(
+                "UPDATE clusters SET persistence = ?, decay_rate = ? WHERE cluster_type = ?",
+                (cl.get("persistence", 0.6), cl.get("decay_rate", 0.02), cl["cluster_type"])
             )
             
     conn.commit()
@@ -153,13 +170,13 @@ def init_db():
     except Exception as e:
         print(f"[Database Error] Failed to initialize file database: {e}. Fallback to in-memory.")
 
-def add_cluster(cluster_type, category, description):
+def add_cluster(cluster_type, category, description, persistence=0.6, decay_rate=0.02):
     try:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR REPLACE INTO clusters (cluster_type, category, description) VALUES (?, ?, ?)",
-            (cluster_type, category, description)
+            "INSERT OR REPLACE INTO clusters (cluster_type, category, description, persistence, decay_rate) VALUES (?, ?, ?, ?, ?)",
+            (cluster_type, category, description, persistence, decay_rate)
         )
         conn.commit()
         if not _use_memory_db:
@@ -171,11 +188,11 @@ def get_clusters():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT cluster_type, category, description FROM clusters")
+        cursor.execute("SELECT cluster_type, category, description, persistence, decay_rate FROM clusters")
         rows = cursor.fetchall()
         if not _use_memory_db:
             conn.close()
-        return [{"cluster_type": r[0], "category": r[1], "description": r[2]} for r in rows]
+        return [{"cluster_type": r[0], "category": r[1], "description": r[2], "persistence": r[3], "decay_rate": r[4]} for r in rows]
     except Exception as e:
         print(f"[Database Error] get_clusters failed: {e}")
         return []

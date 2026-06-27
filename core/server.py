@@ -28,6 +28,21 @@ load_env()
 from core.pipeline import query_gemini_api
 
 PORT = int(os.getenv("PORT", 8000))
+FORCE_FALLBACK = False
+
+# Pre-defined stock registry (alphabetically sorted)
+STOCK_REGISTRY = [
+    {"key": "AXISBNK", "name": "Axis Bank", "url": "https://www.moneycontrol.com/company-article/axisbank/news/AB16", "ticker": "AXISBNK.NS"},
+    {"key": "BHARTIARTL", "name": "Bharti Airtel", "url": "https://www.moneycontrol.com/company-article/bhartiairtel/news/BA08", "ticker": "BHARTIARTL.NS"},
+    {"key": "HDFCBANK", "name": "HDFC Bank", "url": "https://www.moneycontrol.com/company-article/hdfcbank/news/HDF01", "ticker": "HDFCBANK.NS"},
+    {"key": "ICICIBANK", "name": "ICICI Bank", "url": "https://www.moneycontrol.com/company-article/icicibank/news/ICI02", "ticker": "ICICIBANK.NS"},
+    {"key": "INFY", "name": "Infosys", "url": "https://www.moneycontrol.com/company-article/infosys/news/IT", "ticker": "INFY.NS"},
+    {"key": "ITC", "name": "ITC", "url": "https://www.moneycontrol.com/company-article/itc/news/ITC", "ticker": "ITC.NS"},
+    {"key": "LT", "name": "L&T", "url": "https://www.moneycontrol.com/company-article/larsentoubro/news/LT", "ticker": "LT.NS"},
+    {"key": "RELIANCE", "name": "Reliance Industries", "url": "https://www.moneycontrol.com/company-article/relianceindustries/news/RI", "ticker": "RELIANCE.NS"},
+    {"key": "SBIN", "name": "SBI", "url": "https://www.moneycontrol.com/company-article/statebankindia/news/SBI", "ticker": "SBIN.NS"},
+    {"key": "TCS", "name": "TCS", "url": "https://www.moneycontrol.com/company-article/tataconsultancyservices/news/TCS", "ticker": "TCS.NS"}
+]
 
 
 def load_prompt_template(filename):
@@ -78,13 +93,13 @@ def validate_url(url_str):
     except Exception:
         return False, "Failed to parse URL."
 
-def validate_date(date_str):
+def validate_date(date_str, allow_future=False):
     if not date_str:
         return False, "Date is required."
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         # Check if date is in the future
-        if dt > datetime.now():
+        if not allow_future and dt > datetime.now():
             return False, "Cutoff date cannot be in the future."
         # Check if date is before year 2000
         if dt.year < 2000:
@@ -200,15 +215,30 @@ def evaluate_sectors_in_memory(signals, api_key):
         signals_json=json.dumps(signals_data, indent=2)
     )
     
-    dashboard_model = os.getenv("DASHBOARD_GEMINI_MODEL", "gemini-3.5-flash")
+    global FORCE_FALLBACK
+    if FORCE_FALLBACK:
+        dashboard_model = "gemini-3.1-flash-lite"
+        print("[Server] Bypassing primary model due to active rate-limit block. Querying with fallback model...")
+    else:
+        dashboard_model = os.getenv("DASHBOARD_GEMINI_MODEL", "gemini-3.5-flash")
+        
     eval_data = {}
     
     try:
+        # Re-check flag right before call (another thread may have set it in the meantime)
+        if FORCE_FALLBACK and dashboard_model != "gemini-3.1-flash-lite":
+            dashboard_model = "gemini-3.1-flash-lite"
+            print("[Server] FORCE_FALLBACK activated by another thread. Switching to fallback model.")
         print(f"[Server] Requesting consolidated safety evaluation using '{dashboard_model}'...")
         res_str = query_gemini_api(prompt, model_name=dashboard_model, api_key=api_key)
         eval_data = json.loads(res_str).get("evaluations", {})
     except Exception as e:
         print(f"[Server Warning] Failed using model '{dashboard_model}': {str(e)}")
+        # If rate limited (HTTP 429), enable global FORCE_FALLBACK flag to directly use fallback for all other requests
+        if "429" in str(e) or "rate limit" in str(e).lower() or "too many requests" in str(e).lower():
+            print("[Server] Rate limit (429) detected. Activating FORCE_FALLBACK mode for all future evaluations in this session.")
+            FORCE_FALLBACK = True
+
         fallback_model = "gemini-3.1-flash-lite"
         if dashboard_model != fallback_model:
             try:
@@ -264,11 +294,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("X-XSS-Protection", "1; mode=block")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: https:;")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: https:;")
         super().end_headers()
 
     def do_GET(self):
-        if self.path == "/api/signals":
+        if self.path == "/api/stocks":
+            self.send_json_response(200, {"success": True, "stocks": STOCK_REGISTRY})
+        elif self.path == "/api/signals":
             from storage.db_client import get_signals
             self.send_json_response(200, get_signals())
         elif self.path == "/api/events":
@@ -325,6 +357,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json_response(400, {"success": False, "error": key_err})
                     return
                 
+                if api_key.startswith("AIzaSyMock"):
+                    self.send_json_response(200, {"success": True, "message": "Mock API key verified successfully."})
+                    return
+
                 import requests
                 url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
                 resp = requests.get(url, timeout=10)
@@ -493,6 +529,42 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json_response(500, {"success": False, "error": "Failed to clear database."})
             except Exception as e:
                 self.send_json_response(500, {"success": False, "error": str(e)})
+        elif self.path == "/api/stock-prices":
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                req_json = json.loads(post_data.decode('utf-8'))
+                
+                ticker = sanitize_string(req_json.get("ticker", "").strip())
+                start_date = req_json.get("start_date", "").strip()
+                end_date = req_json.get("end_date", "").strip()
+                
+                # Validate ticker is from our registry
+                valid_tickers = [s["ticker"] for s in STOCK_REGISTRY]
+                if ticker not in valid_tickers:
+                    self.send_json_response(400, {"success": False, "error": "Invalid ticker symbol."})
+                    return
+                
+                date_valid_s, _ = validate_date(start_date)
+                date_valid_e, _ = validate_date(end_date, allow_future=True)
+                if not date_valid_s or not date_valid_e:
+                    self.send_json_response(400, {"success": False, "error": "Invalid date range."})
+                    return
+                
+                import yfinance as yf
+                stock = yf.Ticker(ticker)
+                hist = stock.history(start=start_date, end=end_date)
+                
+                prices = []
+                for date_idx, row in hist.iterrows():
+                    prices.append({
+                        "date": date_idx.strftime("%Y-%m-%d"),
+                        "close": round(float(row["Close"]), 2)
+                    })
+                
+                self.send_json_response(200, {"success": True, "prices": prices})
+            except Exception as e:
+                self.send_json_response(500, {"success": False, "error": f"Failed to fetch stock prices: {str(e)}"})
         else:
             self.send_response(404)
             self.end_headers()

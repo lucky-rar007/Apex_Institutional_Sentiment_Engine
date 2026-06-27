@@ -10,7 +10,7 @@ Below are the current registered cluster types you must classify signals into:
    - Assign the event's `event_id` and `article_id` to maintain full trace-back capability.
    - Extract the `signal_type` (what this signal represents, e.g., "buy", "sell", "growth_momentum", "governance_risk").
    - Assign a `cluster_type` from the active clusters list above.
-   - If a signal does not fit any of the active cluster types, do NOT force it. Instead, assign it the specific response code "NEW_CLUSTER_PROPOSED" as the `cluster_type`, and specify the proposed new cluster name (snake_case), a detailed description, and the suggested category.
+   - If a signal does not fit any of the active cluster types, do NOT force it. Instead, assign it the specific response code "NEW_CLUSTER_PROPOSED" as the `cluster_type`. Under `proposed_cluster`, specify the proposed new cluster name (snake_case), a detailed description, a suggested category, a `persistence` parameter (float between 0.1 and 1.0, representing the fraction of signal strength that remains active over time), and a `decay_rate` parameter (float between 0.001 and 0.1, representing daily decay speed).
    - Assign a `relevance_score` (0.0 to 1.0) indicating how critical this signal is for predicting the company's financial performance and stock price.
    - Assign a `strength` score (-1.0 to 1.0) representing the sentiment impact. If the event is negative, strength should be negative. If positive, it should be positive.
    - Assign a `confidence` score (0.0 to 1.0) for the signal extraction.
@@ -36,7 +36,9 @@ Do NOT include any explanations, warnings, markdown formatting, or conversationa
       "proposed_cluster": {{
         "cluster_name": "<proposed_new_cluster_in_snake_case>",
         "description": "<what this cluster represents>",
-        "category": "<high-level category>"
+        "category": "<high-level category>",
+        "persistence": <float_between_0.1_and_1.0>,
+        "decay_rate": <float_between_0.001_and_0.1>
       }}
     }}
   ]

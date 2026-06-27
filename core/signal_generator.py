@@ -29,20 +29,25 @@ def parse_date_flexible(date_str):
             continue
     return datetime.now()
 
-def calculate_time_decay(strength, cluster_type, timestamp_str):
+def calculate_time_decay(strength, cluster_type, timestamp_str, persistence=None, decay_rate=None):
     """
     Applies the exponential decay formula: Decayed Strength = Strength * exp(-decay_rate * days_elapsed).
     Returns (decayed_strength, persistence, decay_rate).
     """
     dt = parse_date_flexible(timestamp_str)
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
     days_elapsed = (datetime.now() - dt).days
     if days_elapsed < 0:
         days_elapsed = 0
 
     # Get decay params
-    params = CLUSTER_DECAY_MAPPING.get(cluster_type.strip().lower(), {"persistence": 0.6, "decay_rate": 0.02})
-    persistence = params["persistence"]
-    decay_rate = params["decay_rate"]
+    if persistence is None or decay_rate is None:
+        params = CLUSTER_DECAY_MAPPING.get(cluster_type.strip().lower(), {"persistence": 0.6, "decay_rate": 0.02})
+        if persistence is None:
+            persistence = params["persistence"]
+        if decay_rate is None:
+            decay_rate = params["decay_rate"]
 
     # Calculate exponential decay
     decayed_strength = strength * math.exp(-decay_rate * days_elapsed)

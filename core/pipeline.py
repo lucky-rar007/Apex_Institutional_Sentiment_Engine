@@ -34,6 +34,127 @@ def query_gemini_api(prompt, model_name=None, api_key=None):
     if not api_key:
         raise ValueError("Gemini API Key is missing. Please provide it in the input.")
 
+    # Intercept mock keys for offline simulation
+    if api_key.startswith("AIzaSyMock"):
+        print(f"[Gemini Mock API] Intercepted mock key. Prompt length: {len(prompt)}")
+        # Determine prompt type and return simulated JSON
+        if "registry_json" in prompt:
+            # Event extraction prompt
+            # Extract first few article IDs from prompt to make mock data trace correctly
+            import re
+            art_ids = re.findall(r'"id":\s*"([^"]+)"', prompt)
+            if not art_ids:
+                art_ids = ["art_mock_1", "art_mock_2"]
+            events_list = []
+            for idx, a_id in enumerate(art_ids):
+                # alternate between earnings and regulatory issues for variety
+                if idx % 2 == 0:
+                    events_list.append({
+                        "article_id": a_id,
+                        "event_type": "earnings_report",
+                        "impact_area": "financials",
+                        "direction": "positive",
+                        "confidence": 0.95,
+                        "summary": "Strong quarterly performance and revenue growth."
+                    })
+                else:
+                    events_list.append({
+                        "article_id": a_id,
+                        "event_type": "regulatory_issue",
+                        "impact_area": "compliance",
+                        "direction": "negative",
+                        "confidence": 0.80,
+                        "summary": "Regulatory query regarding tax compliance."
+                    })
+            mock_res = {"events": events_list, "unknown_events": []}
+            return json.dumps(mock_res)
+            
+        elif "events_json" in prompt:
+            # Signal clustering prompt
+            import re
+            ev_matches = re.findall(r'"event_id":\s*"([^"]+)".*?"article_id":\s*"([^"]+)".*?"event_type":\s*"([^"]+)".*?"timestamp":\s*"([^"]+)"', prompt, re.DOTALL)
+            if not ev_matches:
+                # Try finding them individually
+                ev_ids = re.findall(r'"event_id":\s*"([^"]+)"', prompt)
+                art_ids = re.findall(r'"article_id":\s*"([^"]+)"', prompt)
+                types = re.findall(r'"event_type":\s*"([^"]+)"', prompt)
+                times = re.findall(r'"timestamp":\s*"([^"]+)"', prompt)
+                ev_matches = list(zip(ev_ids, art_ids, types, times))
+            
+            signals_list = []
+            for ev_id, a_id, ev_type, timestamp in ev_matches:
+                strength = 2.5 if "earnings" in ev_type or "growth" in ev_type else -1.5
+                cluster = "financials" if "earnings" in ev_type or "growth" in ev_type or "revenue" in ev_type else "compliance"
+                signals_list.append({
+                    "event_id": ev_id,
+                    "article_id": a_id,
+                    "signal_type": ev_type,
+                    "cluster_type": cluster,
+                    "strength": strength,
+                    "relevance_score": 0.9,
+                    "confidence": 0.95,
+                    "timestamp": timestamp
+                })
+            if not signals_list:
+                signals_list = [{
+                    "event_id": "ev_mock",
+                    "article_id": "art_mock",
+                    "signal_type": "earnings_report",
+                    "cluster_type": "financials",
+                    "strength": 2.5,
+                    "relevance_score": 0.9,
+                    "confidence": 0.95,
+                    "timestamp": "2026-06-25T10:00:00Z"
+                }]
+            mock_res = {"signals": signals_list}
+            return json.dumps(mock_res)
+            
+        elif "sectors_json" in prompt:
+            # Consolidated health evaluation
+            mock_res = {
+                "evaluations": {
+                    "financials": {
+                        "health_score": 85,
+                        "status": "Healthy",
+                        "confidence": 0.95,
+                        "summary": "Outstanding operational and financial growth observed in recent reports."
+                    },
+                    "compliance": {
+                        "health_score": 55,
+                        "status": "Warning",
+                        "confidence": 0.85,
+                        "summary": "Pending regulatory inquiry resolved with minor administrative penalty."
+                    },
+                    "operations": {
+                        "health_score": 75,
+                        "status": "Stable",
+                        "confidence": 0.90,
+                        "summary": "Core operations are executing efficiently with steady expansion."
+                    },
+                    "governance": {
+                        "health_score": 80,
+                        "status": "Healthy",
+                        "confidence": 0.95,
+                        "summary": "Effective board alignment and clear strategic communication."
+                    },
+                    "employment": {
+                        "health_score": 70,
+                        "status": "Stable",
+                        "confidence": 0.85,
+                        "summary": "Staff satisfaction is stable with targeted key hire expansions."
+                    },
+                    "product_tech": {
+                        "health_score": 82,
+                        "status": "Healthy",
+                        "confidence": 0.90,
+                        "summary": "Strong software release cycle and robust security posture."
+                    }
+                }
+            }
+            return json.dumps(mock_res)
+        else:
+            return "{}"
+
     # Throttling: spacing requests to remain within RPM limits
     min_spacing = 2.0
     elapsed = time.time() - _last_request_time
@@ -71,6 +192,14 @@ def query_gemini_api(prompt, model_name=None, api_key=None):
             
             # Catch Rate Limits (429) or Temporary Service issues (503)
             if response.status_code in (429, 503):
+                # Immediately broadcast rate-limit flag so other threads/requests skip the primary model
+                if response.status_code == 429:
+                    try:
+                        import core.server as _srv
+                        _srv.FORCE_FALLBACK = True
+                        print("[Gemini Rate Limiter] Set FORCE_FALLBACK=True globally due to HTTP 429.")
+                    except Exception:
+                        pass
                 backoff = (base_backoff ** attempt) + random.uniform(0.5, 1.5)
                 print(f"[Gemini Rate Limiter] Received HTTP {response.status_code} (Attempt {attempt}/{max_retries}). Retrying in {backoff:.2f}s...")
                 time.sleep(backoff)
@@ -318,6 +447,16 @@ def run_gemini_signals_clustering(events, api_key, cluster_registry, batch_size=
                     new_desc = proposed.get("description", "Dynamically proposed cluster").strip()
                     new_cat = proposed.get("category", "general").strip()
                     
+                    try:
+                        new_persistence = float(proposed.get("persistence", 0.6))
+                    except (ValueError, TypeError):
+                        new_persistence = 0.6
+                        
+                    try:
+                        new_decay_rate = float(proposed.get("decay_rate", 0.02))
+                    except (ValueError, TypeError):
+                        new_decay_rate = 0.02
+                    
                     if not new_cluster_name:
                         new_cluster_name = f"proposed_cluster_{str(uuid.uuid4())[:6]}"
                         
@@ -325,11 +464,13 @@ def run_gemini_signals_clustering(events, api_key, cluster_registry, batch_size=
                         print(f"    [Registry] Gemini proposed new cluster '{new_cluster_name}'. Registering...")
                         cluster_registry[new_cluster_name] = {
                             "description": new_desc,
-                            "category": new_cat
+                            "category": new_cat,
+                            "persistence": new_persistence,
+                            "decay_rate": new_decay_rate
                         }
                         try:
                             from storage.db_client import add_cluster
-                            add_cluster(new_cluster_name, new_cat, new_desc)
+                            add_cluster(new_cluster_name, new_cat, new_desc, new_persistence, new_decay_rate)
                         except Exception as e:
                             print(f"    [Registry Error] Failed to save new cluster to DB: {e}")
                         re_run_batch = True
@@ -349,10 +490,16 @@ def run_gemini_signals_clustering(events, api_key, cluster_registry, batch_size=
                 confidence = float(sig["confidence"])
                 timestamp = sig["timestamp"]
                 
+                c_info = cluster_registry.get(cluster_type, {})
+                c_persistence = c_info.get("persistence", None)
+                c_decay_rate = c_info.get("decay_rate", None)
+                
                 decayed_strength, persistence, decay_rate = calculate_time_decay(
                     strength=strength,
                     cluster_type=cluster_type,
-                    timestamp_str=timestamp
+                    timestamp_str=timestamp,
+                    persistence=c_persistence,
+                    decay_rate=c_decay_rate
                 )
                 
                 signal_id = f"sig_{event_id}_{str(uuid.uuid4())[:8]}"
@@ -395,7 +542,15 @@ def run_batch_pipeline(start_url, cutoff_dt, api_key):
     db_clusters = get_clusters()
     
     event_registry = {ev["event_type"]: {"category": ev["category"], "description": ev["description"]} for ev in (db_events if db_events else INITIAL_EVENTS)}
-    cluster_registry = {cl["cluster_type"]: {"category": cl["category"], "description": cl["description"]} for cl in (db_clusters if db_clusters else INITIAL_CLUSTERS)}
+    cluster_registry = {
+        cl["cluster_type"]: {
+            "category": cl["category"],
+            "description": cl["description"],
+            "persistence": cl.get("persistence", 0.6),
+            "decay_rate": cl.get("decay_rate", 0.02)
+        }
+        for cl in (db_clusters if db_clusters else INITIAL_CLUSTERS)
+    }
     
     # 3. Extract events
     processed_articles, extracted_events = run_gemini_batch_event_extraction(
